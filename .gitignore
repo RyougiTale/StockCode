@@ -1,0 +1,54 @@
+# 杂项
+/idea/
+/old/*
+/backup/*
+# 数据文件
+# /data/
+# *.csv
+
+# 模型文件
+/models/
+*.pkl
+
+# 生成的图片
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+ENV/
+env/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDE文件
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
