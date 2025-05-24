@@ -7,7 +7,8 @@ from sklearn.preprocessing import MinMaxScaler
 
 def prepare_data_for_pytorch_regression(data_df, n_steps, pred_window,
                                         existing_feature_scaler=None,
-                                        existing_target_scaler=None):
+                                        existing_target_scaler=None,
+                                        feature_columns=None):
     """
     准备时间序列数据用于PyTorch回归模型。
     :param data_df: 输入的DataFrame，需要包含 'close' 列以及其他特征列。
@@ -15,78 +16,181 @@ def prepare_data_for_pytorch_regression(data_df, n_steps, pred_window,
     :param pred_window: 预测未来多少天后的收盘价。
     :param existing_feature_scaler: (可选) 预先拟合的特征归一化器。
     :param existing_target_scaler: (可选) 预先拟合的目标归一化器。
+    :param feature_columns: (可选) 特征列名列表，默认为基础行情数据。
     :return: X (特征张量), y (目标张量), feature_scaler, target_scaler。如果数据不足，返回 None, None, None, None。
     """
-    # 1. 创建目标变量: 预测 pred_window 天后的收盘价
-    data_df_copy = data_df.copy() # 操作副本以避免 SettingWithCopyWarning
-    data_df_copy['target'] = data_df_copy['close'].shift(-pred_window)
-    data_df_copy.dropna(inplace=True) # 移除因shift产生的NaN值
+    data_df_copy = data_df.copy()
 
-    if len(data_df_copy) < n_steps + 1: # 需要至少 n_steps 用于输入，1 用于当前的目标点
+    # 1. 数据质量验证
+    if 'close' in data_df_copy.columns:
+        invalid_prices = data_df_copy['close'] <= 0
+        if invalid_prices.any():
+            print(f"警告: 发现 {invalid_prices.sum()} 条无效的收盘价（<=0）")
+            data_df_copy.loc[invalid_prices, 'close'] = np.nan
+    
+    if 'volume' in data_df_copy.columns:
+        invalid_volume = data_df_copy['volume'] < 0
+        if invalid_volume.any():
+            print(f"警告: 发现 {invalid_volume.sum()} 条无效的成交量（<0）")
+            data_df_copy.loc[invalid_volume, 'volume'] = np.nan
+
+    # 2. 设置默认特征列（如果未指定）
+    if feature_columns is None:
+        feature_columns = ['close', 'high', 'low', 'open', 'volume']
+    
+    # 3. 确保所需特征列存在
+    if not all(col in data_df_copy.columns for col in feature_columns):
+        print(f"警告: DataFrame缺少必要的列。需要: {feature_columns}。可用: {data_df_copy.columns.tolist()}")
+        return None, None, None, None
+
+    # 4. 创建目标变量: 预测 pred_window 天后的收盘价
+    data_df_copy['target'] = data_df_copy['close'].shift(-pred_window)
+
+    # 5. 移除所有包含NaN的行
+    # 这会移除：
+    # a) 原始数据中的无效值
+    # b) shift操作产生的NaN（最后pred_window天）
+    data_df_copy.dropna(inplace=True)
+
+    if len(data_df_copy) < n_steps + 1:
         print(f"警告: 数据不足 (处理后 {len(data_df_copy)} 行) 以创建至少一个长度为 {n_steps} 的序列。")
         return None, None, None, None
-    
-    # 2. 选择特征列
-    feature_columns = ['close', 'high', 'low', 'open', 'volume'] # 可以根据需要调整
-    # 确保在尝试访问列之前，DataFrame不为空且包含这些列
-    if not all(col in data_df_copy.columns for col in feature_columns + ['target']):
-        print(f"警告: DataFrame缺少必要的列。需要: {feature_columns + ['target']}。可用: {data_df_copy.columns.tolist()}")
-        return None, None, None, None
-        
+
+    # 6. 提取特征和目标
     features = data_df_copy[feature_columns].values
     target = data_df_copy[['target']].values
 
-    # 3. 数据归一化
+    # 7. 数据归一化 (使用0-1范围)
     if existing_feature_scaler:
         feature_scaler = existing_feature_scaler
         scaled_features = feature_scaler.transform(features)
     else:
-        feature_scaler = MinMaxScaler(feature_range=(-1, 1))
+        feature_scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_features = feature_scaler.fit_transform(features)
     
     if existing_target_scaler:
         target_scaler = existing_target_scaler
         scaled_target = target_scaler.transform(target)
     else:
-        target_scaler = MinMaxScaler(feature_range=(-1, 1))
+        target_scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_target = target_scaler.fit_transform(target)
-    
-    # 4. 创建时间序列样本
-    X_list, y_list = [], []
-    # 循环的上限应该是 len(scaled_features) 或 len(scaled_target)，它们应该是一样的
-    # 确保 i 不会超出 scaled_target 的范围，因为 y_list.append(scaled_target[i, 0])
-    # 实际上，由于target是基于features[i]时间点的值，所以循环到len(scaled_features)即可
-    # 而scaled_target的长度应该与scaled_features相同
-    
-    # 确保在创建序列之前，我们有足够的数据点
-    # scaled_features 的行数必须至少为 n_steps 才能创建第一个序列
-    # 循环从 n_steps 开始，到 len(scaled_features) -1 结束（因为索引是 i-n_steps 到 i-1 作为X, i 作为y）
-    # 所以，len(scaled_features) 必须至少是 n_steps。
-    # 如果 len(scaled_features) == n_steps, 循环 for i in range(n_steps, n_steps) 不会执行。
-    # 应该是 for i in range(n_steps -1, len(scaled_features) -1) 如果y是 target[i+1]
-    # 或者 for i in range(n_steps, len(scaled_features)+1) 如果y是 target[i-1]
-    # 当前逻辑: X是 [i-n_steps:i], y是 [i,0] (scaled_target的第i行)
-    # 这意味着当 i = n_steps 时, X是 [0:n_steps], y是 scaled_target[n_steps,0]
-    # 循环的最后一次 i = len(scaled_features)-1, X是 [len-1-n_steps : len-1], y是 scaled_target[len-1,0]
-    # 所以，scaled_features 和 scaled_target 的长度必须至少是 n_steps + 1 才能让循环至少跑一次（当i=n_steps时）
-    # 但实际上，只要 len(scaled_features) > n_steps 即可。
-    # 如果 len(scaled_features) == n_steps, range(n_steps, n_steps) 为空。
-    # 如果 len(scaled_features) == n_steps + 1, range(n_steps, n_steps+1) -> i = n_steps.
-    
-    if len(scaled_features) < n_steps: # 严格来说，如果等于n_steps，也无法形成序列y[i]
-        print(f"警告: 归一化后的特征数据不足 ({len(scaled_features)} 行) 以创建长度为 {n_steps} 的序列。")
-        return None, None, feature_scaler, target_scaler # 返回scaler，即使没有数据
 
+    # 8. 创建时间序列样本
+    X_list, y_list = [], []
+    
+    if len(scaled_features) < n_steps:
+        print(f"警告: 归一化后的特征数据不足 ({len(scaled_features)} 行) 以创建长度为 {n_steps} 的序列。")
+        return None, None, feature_scaler, target_scaler
+
+    # 创建时间序列样本
     for i in range(n_steps, len(scaled_features)):
         X_list.append(scaled_features[i-n_steps:i, :])
         y_list.append(scaled_target[i, 0])
     
-    if not X_list: # 如果没有生成任何序列
+    if not X_list:
         print(f"警告: 未能从数据中创建任何时间序列样本。")
         return None, None, feature_scaler, target_scaler
 
-    # 转换为PyTorch张量
+    # 9. 转换为PyTorch张量
     X_tensor = torch.tensor(np.array(X_list), dtype=torch.float32)
     y_tensor = torch.tensor(np.array(y_list), dtype=torch.float32).unsqueeze(1)
     
     return X_tensor, y_tensor, feature_scaler, target_scaler
+
+def prepare_data_for_pytorch_classification(data_df, n_steps, pred_window, 
+                                          existing_feature_scaler=None, 
+                                          feature_columns=None,
+                                          price_increase_threshold=0.02):
+    """
+    准备时间序列数据用于PyTorch分类模型。
+    目标为未来pred_window天后收盘价是否上涨（1）或下跌（0）。
+    :param data_df: 输入的DataFrame，需要包含 'close' 列以及其他特征列。
+    :param n_steps: 用作输入序列的时间步长。
+    :param pred_window: 预测未来多少天后的涨跌。
+    :param existing_feature_scaler: (可选) 预先拟合的特征归一化器。
+    :param feature_columns: (可选) 特征列名列表，默认包含基础行情和常用技术指标。
+    :param price_increase_threshold: 定义上涨的价格增长阈值，默认0.02（2%）
+    :return: X (特征张量), y (标签张量), feature_scaler。如果数据不足，返回 None, None, None。
+    """
+    data_df_copy = data_df.copy()
+    
+    # 1. 数据质量验证
+    if 'close' in data_df_copy.columns:
+        invalid_prices = data_df_copy['close'] <= 0
+        if invalid_prices.any():
+            print(f"警告: 发现 {invalid_prices.sum()} 条无效的收盘价（<=0）")
+            data_df_copy.loc[invalid_prices, 'close'] = np.nan
+    
+    if 'volume' in data_df_copy.columns:
+        invalid_volume = data_df_copy['volume'] < 0
+        if invalid_volume.any():
+            print(f"警告: 发现 {invalid_volume.sum()} 条无效的成交量（<0）")
+            data_df_copy.loc[invalid_volume, 'volume'] = np.nan
+
+    # 2. 计算技术指标
+    data_df_copy['ma5'] = data_df_copy['close'].rolling(window=5).mean()
+    data_df_copy['ma10'] = data_df_copy['close'].rolling(window=10).mean()
+    data_df_copy['rsi14'] = 100 - 100 / (1 + data_df_copy['close'].pct_change().rolling(14).mean())
+    
+    # 3. 设置默认特征列（如果未指定）
+    if feature_columns is None:
+        feature_columns = ['close', 'high', 'low', 'open', 'volume', 'ma5', 'ma10', 'rsi14']
+        # feature_columns = ['close', 'high', 'low', 'open', 'volume']
+    
+    # 确保所需特征列存在
+    if not all(col in data_df_copy.columns for col in feature_columns):
+        print(f"警告: DataFrame缺少必要的列。需要: {feature_columns}。可用: {data_df_copy.columns.tolist()}")
+        return None, None, None
+    
+    # 4. 计算未来最高价 (用于后续生成标签)
+    # 修正：对于第i行，计算从第i+1行到第i+pred_window行的'close'价格中的最大值
+    data_df_copy['future_max'] = data_df_copy['close'].rolling(window=pred_window, min_periods=1).max().shift(-pred_window)
+    
+    # 5. 移除所有包含NaN的行 (在生成最终标签之前)
+    # 这会移除：
+    # a) 原始数据中的无效值
+    # b) 技术指标计算产生的NaN（序列开始的部分）
+    # c) future_max计算产生的NaN（序列末尾的部分）
+    data_df_copy.dropna(inplace=True) # 标签将在此操作之后从清理过的数据帧计算
+    
+    if len(data_df_copy) < n_steps + 1: # 长度检查也相应提前
+        print(f"警告: 数据不足 (处理后 {len(data_df_copy)} 行) 以创建至少一个长度为 {n_steps} 的序列。")
+        return None, None, None
+    
+    # 6. 从清理后的数据生成标签
+    # 确保 'future_max' 和 'close' 列在 data_df_copy 中仍然存在且有效
+    labels = (data_df_copy['future_max'] > data_df_copy['close'] * (1 + price_increase_threshold)).astype(int).values.reshape(-1, 1)
+        
+    # 7. 提取特征 (从同样清理过的数据)
+    # 确保 feature_columns 中的所有列在 data_df_copy 中仍然存在且有效
+    features = data_df_copy[feature_columns].values
+    
+    # 8. 归一化特征 (使用0-1范围)
+    if existing_feature_scaler:
+        feature_scaler = existing_feature_scaler
+        scaled_features = feature_scaler.transform(features)
+    else:
+        feature_scaler = MinMaxScaler(feature_range=(0, 1))
+        scaled_features = feature_scaler.fit_transform(features)
+    
+    # 9. 创建时间序列样本
+    X_list, y_list = [], []
+    # scaled_features 和 labels 的行数此时应该是一致的
+    # 因为它们都是从执行了 dropna() 后的 data_df_copy 派生出来的
+    if len(scaled_features) < n_steps: 
+        print(f"警告: 归一化后的特征数据不足 ({len(scaled_features)} 行) 以创建长度为 {n_steps} 的序列。")
+        return None, None, feature_scaler
+
+    for i in range(n_steps, len(scaled_features)):
+        X_list.append(scaled_features[i-n_steps:i, :])
+        y_list.append(labels[i, 0])
+
+    if not X_list:
+        print(f"警告: 未能从数据中创建任何时间序列样本。")
+        return None, None, feature_scaler
+
+    # 10. 转换为PyTorch张量
+    X_tensor = torch.tensor(np.array(X_list), dtype=torch.float32)
+    y_tensor = torch.tensor(np.array(y_list), dtype=torch.float32).unsqueeze(1)
+    
+    return X_tensor, y_tensor, feature_scaler

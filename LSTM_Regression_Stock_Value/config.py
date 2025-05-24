@@ -1,7 +1,7 @@
 # 股票长周期预测系统配置文件
 import pandas as pd
 
-_N_PAST_DAYS_FOR_SHIFT = 200 # 这个值应与 PREDICTION_CONFIG 中的 n_past_days_debug 同步
+_N_PAST_DAYS_FOR_SHIFT = 30 # 这个值应与 PREDICTION_CONFIG 中的 n_past_days_debug 同步
 
 def _shift_date_approx_calendar(base_date_str, n_trading_days_to_shift_back):
     """
@@ -35,13 +35,13 @@ DATA_CONFIG = {
 # 预测相关配置
 PREDICTION_CONFIG = {
     'n_past_days_debug': _N_PAST_DAYS_FOR_SHIFT, # 输入序列长度（过去多少天的数据）
-    'prediction_days': 30,                  # 预测未来多少天
+    'prediction_days': 3,                  # 预测未来多少天
     'lstm_hidden_dim': 256,
     'lstm_layer_dim': 3,
     'lstm_dropout': 0.2,
-    'learning_rate': 0.001,                 # 学习率
+    'learning_rate': 0.0001,                 # 学习率
     'num_epochs_debug': 10,                 # 训练轮数
-    'batch_size': 64,                       # 批量大小
+    'batch_size': 128,                       # 批量大小
     'inference_batch_size': 64,
     'random_seed': 42,                      # 随机种子
     'feature_columns': ['open', 'high', 'low', 'close', 'volume'], # 使用的特征列
