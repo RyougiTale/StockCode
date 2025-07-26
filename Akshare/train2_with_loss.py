@@ -7,7 +7,7 @@ import math
 import os
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
-from Akshare.stock_util import read_history_stock_by_code
+from stock_util import read_history_stock_by_code
 
 # =============================================================================
 # 0. 模拟数据生成 (为了代码可独立运行)

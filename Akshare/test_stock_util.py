@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 import webbrowser
 import os
-from Akshare.stock_util import read_history_stock_by_code
+from stock_util import read_history_stock_by_code
 
 
 class TestStockUtil(unittest.TestCase):

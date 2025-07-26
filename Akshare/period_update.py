@@ -1,6 +1,6 @@
 import time
-from Akshare.index import read_sz50
-from Akshare.stock_util import read_history_stock_by_code
+from index import read_sz50
+from stock_util import read_history_stock_by_code
 
 def update_sz50_kline_data():
     """

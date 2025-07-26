@@ -8,29 +8,7 @@ import os
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
 
-# =============================================================================
-# 0. 模拟数据生成 (为了代码可独立运行)
-# =============================================================================
-def create_dummy_stock_data(filepath="stock_data.csv"):
-    if os.path.exists(filepath): return
-    print(f"Creating dummy stock data at '{filepath}'...")
-    dates = pd.to_datetime(pd.date_range(start="2022-01-01", periods=500))
-    data = {'date': dates, 'open': np.random.uniform(9.5, 10.5, 500).cumsum() + 100}
-    df = pd.DataFrame(data)
-    df['high'] = df['open'] + np.random.uniform(0, 1, 500)
-    df['low'] = df['open'] - np.random.uniform(0, 1, 500)
-    df['close'] = (df['open'] + df['high'] + df['low']) / 3 + np.random.uniform(-0.2, 0.2, 500)
-    # 确保 high >= low
-    df['high'] = df[['high', 'open', 'close']].max(axis=1)
-    df['low'] = df[['low', 'open', 'close']].min(axis=1)
-    df['volume'] = np.random.randint(100000, 500000, 500)
-    df['turnover'] = df['volume'] * df['close']
-    df['amplitude'] = (df['high'] - df['low']) / df['close'] * 100
-    df['pct_chg'] = df['close'].pct_change() * 100
-    df['chg_amount'] = df['close'].diff()
-    df['turnover_rate'] = df['volume'] / 1e9
-    df.to_csv(filepath, index=False)
-    print("Dummy data created.")
+
 
 # =============================================================================
 # 1. 数据集类 (已重构为预测“变化率”)
@@ -41,14 +19,14 @@ class StockDataset(Dataset):
         
         self.df = dataframe.copy()
         # --- 特征工程 ---
-        self.df['SMA20'] = self.df['close'].rolling(window=20).mean()
-        self.df['SMA60'] = self.df['close'].rolling(window=60).mean()
+        # self.df['SMA20'] = self.df['close'].rolling(window=20).mean()
+        # self.df['SMA60'] = self.df['close'].rolling(window=60).mean()
         # 确保pct_chg在最前面计算，以防数据对齐问题
         self.df['pct_chg'] = self.df['close'].pct_change() * 100
         self.df.dropna(inplace=True)
         self.df.reset_index(drop=True, inplace=True)
 
-        self.feature_columns = ['open', 'high', 'low', 'close', 'volume', 'turnover', 'amplitude', 'pct_chg', 'chg_amount', 'turnover_rate', 'SMA20', 'SMA60']
+        self.feature_columns = ['open', 'high', 'low', 'close', 'volume', 'turnover', 'amplitude', 'pct_chg', 'chg_amount', 'turnover_rate']
         self.features = self.df[self.feature_columns]
         
         # --- 数据归一化 ---
@@ -186,17 +164,23 @@ if __name__ == '__main__':
     # --- 超参数 ---
     LOOKBACK_PERIOD = 60
     D_MODEL, NHEAD, NUM_ENCODER_LAYERS, DIM_FEEDFORWARD, DROPOUT = 64, 4, 2, 256, 0.1
-    EPOCHS, BATCH_SIZE, LEARNING_RATE = 40, 32, 0.0005
+    EPOCHS, BATCH_SIZE, LEARNING_RATE = 30, 32, 0.0005
     LAMBDA_DIRECTIONAL = 0.5 # 新增：方向惩罚的权重
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # --- 1. 数据准备 ---
-    data_filepath = "stock_data.csv"
-    create_dummy_stock_data(data_filepath)
-    full_df = pd.read_csv(data_filepath)
+    from stock_util import read_history_stock_by_code
+
+    full_df = read_history_stock_by_code("600036")
     
     train_df = full_df[:-LOOKBACK_PERIOD]
+    
+    # temp_df = full_df[:]
+    # temp_df.df['SMA20'] = temp_df.df['close'].rolling(window=20).mean()
+    # temp_df.df['SMA60'] = temp_df.df['close'].rolling(window=60).mean()
+    # # 确保pct_chg在最前面计算，以防数据对齐问题
+    # temp_df.df['pct_chg'] = temp_df.df['close'].pct_change() * 100
+    # temp_df.df.dropna(inplace=True)
+    # temp_df.df.reset_index(drop=True, inplace=True)
     inference_history_df = full_df.tail(LOOKBACK_PERIOD).reset_index(drop=True)
 
     train_dataset = StockDataset(train_df, LOOKBACK_PERIOD)
@@ -261,8 +245,8 @@ if __name__ == '__main__':
     predicted_df['turnover'] = predicted_df['volume'] * predicted_df['close']
     predicted_df['amplitude'] = (predicted_df['high'] - predicted_df['low']) / predicted_df['close'] * 100
     predicted_df['chg_amount'] = predicted_df['close'].diff().fillna(predicted_df['close'].iloc[0] - last_close)
-    predicted_df['SMA20'] = predicted_df['close'].expanding().mean()
-    predicted_df['SMA60'] = predicted_df['close'].expanding().mean()
+    # predicted_df['SMA20'] = predicted_df['close'].expanding().mean()
+    # predicted_df['SMA60'] = predicted_df['close'].expanding().mean()
     predicted_df['turnover_rate'] = predicted_df['volume'] / 1e9
 
     print("\n--- Prediction Results ---")

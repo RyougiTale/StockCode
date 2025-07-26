@@ -2,7 +2,7 @@
 import akshare as ak
 import pandas as pd
 from datetime import date
-from Akshare.db_manager import read_table, save_dataframe, get_db_connection
+from db_manager import read_table, save_dataframe, get_db_connection
 
 # 所有成分
 def read_all_index():

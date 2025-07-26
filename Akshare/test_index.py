@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 import webbrowser
 import os
-from Akshare.index import read_hs300, read_sz50
+from index import read_hs300, read_sz50
 
 class TestIndexComparison(unittest.TestCase):
     def test_hs300_sz50_overlap(self):

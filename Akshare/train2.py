@@ -7,28 +7,8 @@ import math
 import os
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import MinMaxScaler
-from Akshare.stock_util import read_history_stock_by_code
+from stock_util import read_history_stock_by_code
 
-# =============================================================================
-# 0. 模拟数据生成 (为了代码可独立运行)
-# =============================================================================
-def create_dummy_stock_data(filepath="stock_data.csv"):
-    if os.path.exists(filepath): return
-    print(f"Creating dummy stock data at '{filepath}'...")
-    dates = pd.to_datetime(pd.date_range(start="2022-01-01", periods=500))
-    data = {'date': dates, 'open': np.random.uniform(9.5, 10.5, 500).cumsum() + 100}
-    df = pd.DataFrame(data)
-    df['high'] = df['open'] + np.random.uniform(0, 1, 500)
-    df['low'] = df['open'] - np.random.uniform(0, 1, 500)
-    df['close'] = (df['open'] + df['high'] + df['low']) / 3 + np.random.uniform(-0.2, 0.2, 500)
-    df['volume'] = np.random.randint(100000, 500000, 500)
-    df['turnover'] = df['volume'] * df['close']
-    df['amplitude'] = (df['high'] - df['low']) / df['close'] * 100
-    df['pct_chg'] = df['close'].pct_change() * 100
-    df['chg_amount'] = df['close'].diff()
-    df['turnover_rate'] = df['volume'] / 1e9
-    df.to_csv(filepath, index=False)
-    print("Dummy data created.")
 
 # =============================================================================
 # 1. 数据处理核心函数 (保留您的原始逻辑)
@@ -37,16 +17,6 @@ MAX_SEQ_LEN = 60
 
 def prepare_data(stock_code):
     print(f"--- Loading, Processing and Preparing Data ---")
-    # if isinstance(stock_code_or_df, str):
-    #     # 假设您有一个类似 read_history_stock_by_code 的函数
-    #     # 为了可运行性，我们从模拟数据文件加载
-    #     create_dummy_stock_data()
-    #     full_df = pd.read_csv("stock_data.csv")
-    # else:
-    #     full_df = stock_code_or_df
-
-    # if full_df.empty:
-    #     print(f"No data provided."); return None, None, None, None, None
     full_df = read_history_stock_by_code(stock_code)
     feature_columns = ['open', 'high', 'low', 'close', 'volume', 'turnover', 'amplitude', 'pct_chg', 'chg_amount', 'turnover_rate']
     full_df['SMA20'] = full_df['close'].rolling(window=20).mean()
@@ -175,6 +145,8 @@ def predict_sequence(model, src_sequence, prediction_steps, device):
             # 编码器看到的是完整的历史(encoder_input)
             # 解码器看到的是到目前为止已经生成的部分(decoder_input)
             prediction = model(encoder_input, decoder_input, device)
+            print(prediction.shape)
+            print(prediction)
             
             # 4. 我们只关心解码器对最后一个时间点的预测结果
             # 这就是我们对下一个时间点的预测值
@@ -220,6 +192,13 @@ if __name__ == '__main__':
         train_loss = train_epoch(model, optimizer, criterion, train_dataloader, device)
         print(f"Epoch {epoch+1:02}/{EPOCHS} | Train Loss: {train_loss:.6f}")
     print("--- Training Finished ---\n")
+
+    model_dir = "models"
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, "stock_transformer_model.pth")
+    torch.save(model.state_dict(), model_path)
+    print(f"--- Model Saved to {model_path} ---\n")
+
 
     # --- 4. 执行推理 ---
     print("--- Performing Inference ---")

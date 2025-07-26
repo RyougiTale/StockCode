@@ -7,8 +7,8 @@ import mplcursors
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
-from Akshare.index import read_sz50
-from Akshare.db_manager import read_table
+from index import read_sz50
+from db_manager import read_table
 
 class StockChartApp:
     def __init__(self, root):

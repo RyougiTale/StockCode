@@ -129,7 +129,7 @@ if __name__ == '__main__':
     print(f"Using device: {device}")
 
     # --- 1. 数据加载、处理和准备 ---
-    from Akshare.stock_util import read_history_stock_by_code
+    from stock_util import read_history_stock_by_code
     stock_code = "600036"
     print(f"--- 1. Loading, Processing and Preparing Data for {stock_code} ---")
 
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     print("--- Training Finished ---\n")
 
     # --- 4. 保存模型 ---
-    model_dir = "Akshare/models"
+    model_dir = "models"
     os.makedirs(model_dir, exist_ok=True)
     model_path = os.path.join(model_dir, "stock_transformer_model.pth")
     torch.save(model.state_dict(), model_path)

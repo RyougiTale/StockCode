@@ -1,7 +1,7 @@
 import akshare as ak
 import pandas as pd
 from datetime import datetime, timedelta
-from Akshare.db_manager import read_table, save_dataframe
+from db_manager import read_table, save_dataframe
 
 def read_cur_stock():
     stock_zh_a_spot_em_df = ak.stock_zh_a_spot_em()

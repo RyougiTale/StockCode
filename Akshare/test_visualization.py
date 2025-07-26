@@ -2,8 +2,8 @@ import unittest
 import pandas as pd
 import matplotlib.pyplot as plt
 import mplcursors
-from Akshare.index import read_sz50
-from Akshare.db_manager import read_table
+from index import read_sz50
+from db_manager import read_table
 from datetime import datetime, timedelta
 
 class TestVisualization(unittest.TestCase):
