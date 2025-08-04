@@ -50,4 +50,4 @@ def main(stock_code):
     print(f"--- Model Saved to {config.MODEL_PATH} ---\n")
 
 if __name__ == '__main__':
-    main(STOCK_CODE)
+    main(config.STOCK_CODE)
