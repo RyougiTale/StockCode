@@ -1,0 +1,6 @@
+2025-08-07 14:14:03 - __main__ - DEBUG - [logger_config.py:183] - 这是调试信息
+2025-08-07 14:14:03 - __main__ - INFO - [logger_config.py:184] - 这是普通信息
+2025-08-07 14:14:03 - __main__ - WARNING - [logger_config.py:185] - 这是警告信息
+2025-08-07 14:14:03 - __main__ - ERROR - [logger_config.py:186] - 这是错误信息
+2025-08-07 14:14:03 - __main__ - DEBUG - [logger_config.py:162] - 开始执行 测试函数
+2025-08-07 14:14:03 - __main__ - INFO - [logger_config.py:167] - ✅ 测试函数 执行完成，耗时: 0.1004秒

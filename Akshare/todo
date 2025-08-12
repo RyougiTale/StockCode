@@ -1,5 +1,44 @@
+idea
 1.自回归概率预测
 2.概率分类
 3.回归多少多少天到目标收益
-
 4.随机采样来造数据和梯度?
+5.自动调参
+6.剥离久远历史数据
+7.融入其他股模型，加上微调环节
+8.加入更多指标
+
+# A. 波动性感知层
+class VolatilityAwareEncoder(nn.Module):
+    def __init__(self, base_encoder, volatility_dim=1):
+        self.base_encoder = base_encoder
+        self.volatility_gate = nn.Linear(volatility_dim, d_model)
+    
+    def forward(self, x, volatility):
+        base_output = self.base_encoder(x)
+        vol_gate = torch.sigmoid(self.volatility_gate(volatility))
+        return base_output * vol_gate
+
+# B. 多专家混合模型
+class MixtureOfExperts(nn.Module):
+    # 不同专家处理不同波动性的股票
+    def __init__(self, num_experts=3):
+        self.experts = nn.ModuleList([Expert() for _ in range(num_experts)])
+        self.gating = nn.Linear(input_dim, num_experts)
+
+# C. 注意力机制
+class VolatilityAttention(nn.Module):
+    # 根据波动性动态调整特征权重
+    def forward(self, features, volatility):
+        attention_weights = self.attention_layer(volatility)
+        return features * attention_weights
+
+
+todo
+[x] 把最新数据揉进去
+[x] 多模型预测
+3.决策模型
+4.标签的均匀分布
+5.以下跌可能作为评判标准
+[ ] 多股票糅合
+[ ] 回撤和波动

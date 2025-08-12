@@ -1,0 +1,13 @@
+etf-300
+d_model 128
+dropout 0.15
+[-0.10, -0.045, 0.0, 0.045, 0.10]
+WEIGHT_DECAY = 0.02
+LEARNING_RATE = 0.0001
+
+600036
+d_model 256
+dropout 0.15
+[-0.10, -0.03, 0.0, 0.03, 0.10]
+WEIGHT_DECAY = 0.02
+LEARNING_RATE = 0.00005

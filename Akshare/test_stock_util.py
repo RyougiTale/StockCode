@@ -7,7 +7,7 @@ from stock_util import read_history_stock_by_code
 
 class TestStockUtil(unittest.TestCase):
     def test_display_stock_kline_in_browser(self):
-        stock_code = "600036"
+        stock_code = "002415"
         print(f"\n--- 单元测试：浏览器显示({stock_code}) K线数据 ---")
 
         df = read_history_stock_by_code(stock_code)  # 获取去年的数据作为示例
