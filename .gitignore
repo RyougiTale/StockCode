@@ -5,6 +5,9 @@
 # 数据文件
 # /data/
 # *.csv
+*.joblib
+*.pth
+*.db
 
 # 模型文件
 /models/
